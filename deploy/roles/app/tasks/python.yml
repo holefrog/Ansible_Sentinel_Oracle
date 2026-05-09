@@ -1,0 +1,9 @@
+---
+- name: Create Python virtual environment and install dependencies
+  tags: [deploy]
+  ansible.builtin.pip:
+    requirements: "{{ app_user_home }}/agent/requirements.txt"
+    virtualenv: "{{ app_user_home }}/venv"
+    virtualenv_command: python3 -m venv
+    extra_args: "--upgrade pip"
+  become_user: "{{ app_user_name }}"

@@ -1,0 +1,52 @@
+---
+- name: Create Hugo application directory
+  tags: [hugo, deploy]
+  ansible.builtin.file:
+    path: "{{ app_user_home }}/hugo"
+    state: directory
+    owner: "{{ app_user_name }}"
+    group: "{{ app_user_name }}"
+    mode: "0755"
+
+- name: Fix ownership of existing hugo directory tree
+  tags: [hugo, deploy]
+  ansible.builtin.file:
+    path: "{{ app_user_home }}/hugo"
+    state: directory
+    owner: "{{ app_user_name }}"
+    group: "{{ app_user_name }}"
+    recurse: true
+
+- name: Ensure logs directory exists for systemd output
+  tags: [hugo, deploy]
+  ansible.builtin.file:
+    path: "{{ app_user_home }}/logs"
+    state: directory
+    owner: "{{ app_user_name }}"
+    group: "{{ app_user_name }}"
+    mode: "0755"
+
+- name: Create Hugo content and layout subdirectories
+  tags: [hugo, deploy]
+  ansible.builtin.file:
+    path: "{{ app_user_home }}/hugo/{{ item }}"
+    state: directory
+    owner: "{{ app_user_name }}"
+    group: "{{ app_user_name }}"
+    mode: "0755"
+  loop:
+    - content/news/archives
+    - content/reports/archives
+    - layouts/_default
+    - static/css
+
+- name: Ensure Hugo specific publishing sub-directory exists
+  # 仅在指定了专门的应用子路径时才创建子文件夹，避免越界接管全局的 webroot
+  tags: [hugo, deploy]
+  ansible.builtin.file:
+    path: "{{ web_base }}/{{ domain }}/{{ sentinel_prefix }}"
+    state: directory
+    owner: "{{ app_user_name }}"
+    group: "{{ app_user_name }}"
+    mode: "0755"
+  when: sentinel_prefix is defined and sentinel_prefix | length > 0

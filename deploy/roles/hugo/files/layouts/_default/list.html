@@ -1,0 +1,40 @@
+{{ define "main" }}
+<h1>{{ .Title }}</h1>
+
+{{/* 1. 获取文章集合并分页 */}}
+{{ $pages := .RegularPages.ByDate.Reverse }}
+{{ $paginator := .Paginate $pages }}
+
+<ul style="list-style: none; padding-left: 0;">
+    {{ range $paginator.Pages }}
+    <li style="display: flex; gap: 15px; margin-bottom: 10px; align-items: flex-start;">
+        {{/* 第一列：时间戳 (固定宽度 140px) */}}
+        <span style="color: #666; font-family: monospace; flex-shrink: 0; width: 140px;">
+            {{ .Date.Format "2006-01-02 15:04" }}
+        </span>
+
+        {{/* 第二列：AI 评分 [引擎 分数] (固定宽度 120px) */}}
+        {{/* 使用 printf "%02d" 强制两位数，使用 default 兜底缺失字段 */}}
+        <span style="color: #e67e22; font-family: monospace; flex-shrink: 0; width: 120px;">
+            [{{ .Params.ai_engine | default "AI" }} {{ printf "%02d" (int .Params.ai_score) }}]
+        </span>
+        
+        {{/* 第三列：标题 */}}
+        <a href="{{ .Permalink }}" style="text-decoration: none; color: #007bff; flex-grow: 1;">
+            {{ .Title }}
+        </a>
+    </li>
+    {{ end }}
+</ul>
+
+{{/* 分页导航 */}}
+{{ if gt $paginator.TotalPages 1 }}
+<div class="pagination-wrapper" style="margin-top: 30px;">
+    {{ template "_internal/pagination.html" . }}
+</div>
+{{ end }}
+
+<div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee;">
+    <a href="{{ "" | relURL }}" style="text-decoration: none; color: #666;">🏠 返回决策中心</a>
+</div>
+{{ end }}

@@ -1,0 +1,21 @@
+---
+- name: Extract and set business variables
+  tags: [deploy, secrets, always]
+  ansible.builtin.set_fact:
+    report_ch: "{{ cfg.discord.report_channel_id }}"
+    scan_ch: "{{ cfg.discord.scan_channel_id }}"
+    alert_ch: "{{ cfg.discord.alert_channel_id }}"
+    log_ch: "{{ cfg.discord.log_channel_id }}"
+    morning_time: "{{ cfg.schedule.morning_report }}"
+    evening_time: "{{ cfg.schedule.evening_report }}"
+    heartbeat_time: "{{ cfg.schedule.heartbeat }}"
+    cron_tz: "{{ cfg.schedule.cron_tz }}"
+    market_scan_minutes: "{{ cfg.market.market_scan_interval_minutes }}"
+    news_scan_minutes: "{{ cfg.news.news_scan_interval_minutes }}"
+
+- name: Derive path variables
+  tags: [deploy, always]
+  ansible.builtin.set_fact:
+    web_root: "{{ web_base }}/{{ domain }}"
+    data_sync_time: "{{ data_sync_time }}"
+

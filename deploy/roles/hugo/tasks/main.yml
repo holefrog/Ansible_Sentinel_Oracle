@@ -1,0 +1,15 @@
+---
+- name: Create Hugo directories
+  ansible.builtin.import_tasks: dirs.yml
+
+- name: Install Hugo theme
+  ansible.builtin.import_tasks: theme.yml
+
+- name: Deploy Hugo site skeleton
+  ansible.builtin.import_tasks: site.yml
+
+- name: Deploy Hugo build script
+  ansible.builtin.import_tasks: build.yml
+
+- name: Configure automatic build triggers
+  ansible.builtin.import_tasks: trigger.yml

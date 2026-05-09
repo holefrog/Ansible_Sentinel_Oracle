@@ -1,0 +1,10 @@
+---
+- name: Verify service health
+  tags: [deploy]
+  ansible.builtin.systemd:
+    name: "{{ service_name }}"
+  register: svc_info
+  until: svc_info.status.ActiveState == "active"
+  retries: 5
+  delay: 3
+  changed_when: false

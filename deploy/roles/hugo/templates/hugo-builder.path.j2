@@ -1,0 +1,11 @@
+[Unit]
+Description=Watch Hugo content directory and trigger build
+
+[Path]
+PathModified={{ app_user_home }}/hugo/content
+PathModified={{ app_user_home }}/hugo/content/news
+PathModified={{ app_user_home }}/hugo/content/reports
+Unit=hugo-builder.service
+
+[Install]
+WantedBy=multi-user.target

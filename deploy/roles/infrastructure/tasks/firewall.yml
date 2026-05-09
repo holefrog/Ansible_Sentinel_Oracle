@@ -1,0 +1,14 @@
+---
+- name: Allow HTTP and HTTPS ports in iptables (TCP)
+  tags: [check, firewall]
+  ansible.builtin.iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: "{{ item }}"
+    jump: ACCEPT
+    action: insert
+    rule_num: 1
+  loop:
+    - "80"
+    - "443"
+  notify: Save iptables rules

@@ -1,0 +1,39 @@
+---
+- name: Configure 1GB Swap partition if not exists
+  tags: [check, swap]
+  block:
+    - name: Create swap file /swapfile
+      # 利用 creates 属性实现原生幂等，文件已存在则自动跳过
+      ansible.builtin.command: fallocate -l 1G /swapfile
+      args:
+        creates: /swapfile
+      register: swapfile_created
+
+    - name: Set swap file permissions
+      # 独立声明式设置文件权限，即便文件由其他途径创建也能自动修正
+      ansible.builtin.file:
+        path: /swapfile
+        mode: "0600"
+        owner: root
+        group: root
+
+    - name: Format as swap partition
+      # 仅在刚刚新建文件时才执行格式化，避免反复覆盖已有 swap 数据
+      ansible.builtin.command: mkswap /swapfile
+      when: swapfile_created.changed
+
+    - name: Check currently active swap devices
+      ansible.builtin.command: swapon --show=NAME --noheadings
+      register: active_swaps
+      changed_when: false
+
+    - name: Enable swap partition immediately
+      # 仅当目标 /swapfile 尚未激活挂载时才执行激活命令
+      ansible.builtin.command: swapon /swapfile
+      when: "'/swapfile' not in active_swaps.stdout"
+
+    - name: Persist Swap configuration in fstab
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        line: "/swapfile none swap sw 0 0"
+        state: present

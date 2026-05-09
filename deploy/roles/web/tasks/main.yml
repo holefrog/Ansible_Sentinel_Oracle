@@ -1,0 +1,111 @@
+---
+- name: Install Nginx and Certbot
+  ansible.builtin.apt:
+    name: [nginx, libnginx-mod-stream, certbot, python3-certbot-nginx]
+    state: present
+    update_cache: true
+
+- name: Remove default Nginx site configuration
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+
+- name: Ensure Webroot base directory exists
+  # 由 web 角色统一管理域名的基础文档根目录，保证架构纯洁度
+  ansible.builtin.file:
+    path: "{{ web_base | default('/usr/share/nginx') }}/{{ domain }}"
+    state: directory
+    owner: "{{ web_user | default('www-data') }}"
+    group: "{{ web_user | default('www-data') }}"
+    mode: '0755'
+
+- name: Ensure Certbot webroot challenge directory exists
+  ansible.builtin.file:
+    path: /var/www/certbot
+    state: directory
+    owner: "{{ web_user | default('www-data') }}"
+    group: "{{ web_user | default('www-data') }}"
+    mode: '0755'
+
+- name: Check if SSL certificate exists
+  ansible.builtin.stat:
+    path: "/etc/letsencrypt/live/{{ domain }}/fullchain.pem"
+  register: ssl_cert
+
+- name: Deploy minimal HTTP-only Nginx configuration for ACME challenge
+  # 仅在初始无证书时铺路临时配置，避免破坏现有的全量配置
+  ansible.builtin.template:
+    src: nginx-http.conf.j2
+    dest: "/etc/nginx/conf.d/{{ domain }}.conf"
+    mode: '0644'
+  when: not ssl_cert.stat.exists
+  register: nginx_http_conf
+
+- name: Ensure Nginx is started to serve HTTP challenge
+  ansible.builtin.systemd:
+    name: nginx
+    state: started
+    enabled: true
+
+- name: Reload Nginx immediately to load challenge route
+  # 如果刚才部署了临时配置，则在此处立即触发重载，不依赖于延迟的 handlers
+  ansible.builtin.systemd:
+    name: nginx
+    state: reloaded
+  when: nginx_http_conf.changed
+
+- name: Request Let's Encrypt Certificate
+  # 抛弃脆弱的 block 状态流控制，利用 creates 属性实现原生的声明式幂等
+  ansible.builtin.command: >
+    certbot certonly --webroot -w /var/www/certbot
+    -d {{ domain }}
+    --non-interactive --agree-tos -m admin@{{ domain }}
+    --deploy-hook "systemctl reload nginx"
+  args:
+    creates: "/etc/letsencrypt/live/{{ domain }}/fullchain.pem"
+
+- name: Deploy full Nginx configuration
+  ansible.builtin.template:
+    src: nginx-full.conf.j2
+    dest: "/etc/nginx/conf.d/{{ domain }}.conf"
+    mode: '0644'
+  notify: Reload Nginx
+
+- name: Ensure custom locations directory exists for modular configs
+  ansible.builtin.file:
+    path: "/etc/nginx/conf.d/{{ domain }}.locations.d"
+    state: directory
+    owner: "{{ web_user | default('www-data') }}"
+    group: "{{ web_user | default('www-data') }}"
+    mode: '0755'
+
+- name: Ensure Nginx stream configuration directory exists
+  ansible.builtin.file:
+    path: /etc/nginx/stream.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Hook stream conf directory into main nginx.conf
+  ansible.builtin.blockinfile:
+    path: /etc/nginx/nginx.conf
+    marker: "# {mark} ANSIBLE MANAGED BLOCK: Nginx Stream Context"
+    block: |
+      stream {
+          include /etc/nginx/stream.conf.d/*.conf;
+      }
+    insertafter: EOF
+  notify: Reload Nginx
+
+- name: Ensure Nginx is running and enabled
+  ansible.builtin.systemd:
+    name: nginx
+    enabled: true
+    state: started
+
+- name: Enable Certbot automatic renewal timer
+  ansible.builtin.systemd:
+    name: certbot.timer
+    enabled: true
+    state: started

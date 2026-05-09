@@ -1,0 +1,40 @@
+---
+- name: Generate .env configuration
+  tags: [deploy, secrets]
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ app_user_home }}/.env"
+    owner: "{{ app_user_name }}"
+    group: "{{ app_user_name }}"
+    mode: "0600"
+  notify: Restart bot
+
+- name: Deploy Systemd service unit
+  tags: [deploy]
+  ansible.builtin.template:
+    src: bot.service.j2
+    dest: "/etc/systemd/system/{{ service_name }}.service"
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart bot
+
+- name: Ensure Discord Bot service is running
+  tags: [deploy]
+  ansible.builtin.systemd:
+    name: "{{ service_name }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+
+
+
+- name: Verify service is active
+  # 验证 服务是否已成功启动并处于 active 状态
+  ansible.builtin.command: systemctl is-active {{ service_name | mandatory }}
+  register: service_status
+  changed_when: false
+
+- name: Display service status
+  ansible.builtin.debug:
+    msg: "✅ Service [ {{ service_name | mandatory }} ] is currently: {{ service_status.stdout }}"

@@ -1,0 +1,14 @@
+server {
+    listen 80;
+    server_name {{ domain }};
+    
+    # ACME Challenge 路由 (Certbot 申请证书时专用的 Webroot 验证路径)
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    # 其他 HTTP 请求在没有证书时暂时返回 404 或拦截
+    location / {
+        return 404;
+    }
+}

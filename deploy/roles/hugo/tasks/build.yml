@@ -1,0 +1,22 @@
+---
+- name: Deploy Hugo build wrapper script
+  tags: [hugo, deploy]
+  ansible.builtin.template:
+    src: build_hugo.sh.j2
+    dest: "{{ app_user_home }}/hugo/build_hugo.sh"
+    owner: "{{ app_user_name }}"
+    group: "{{ app_user_name }}"
+    mode: "0755"
+
+- name: Verify Hugo binary is executable
+  tags: [hugo, deploy]
+  ansible.builtin.command:
+    cmd: "{{ hugo_path }} version"
+  register: hugo_ver
+  changed_when: false
+  failed_when: hugo_ver.rc != 0
+
+- name: Print Hugo version
+  tags: [hugo, deploy]
+  ansible.builtin.debug:
+    msg: "{{ hugo_ver.stdout }}"

@@ -1,0 +1,94 @@
+---
+- name: Deploy scheduled job service units
+  tags: [deploy]
+  ansible.builtin.template:
+    src: agent-job.service.j2
+    dest: "/etc/systemd/system/{{ item.name }}.service"
+    mode: "0644"
+  loop:
+    - name: stock-sentinel-morning-report
+      description: "StockSentinel morning report job"
+      command: >-
+        set -a; . {{ app_user_home }}/.env; set +a;
+        PYTHONPATH={{ app_user_home }} {{ app_user_home }}/venv/bin/python -m agent.report
+        --type morning --channel {{ report_ch }} >> {{ app_user_home }}/logs/morning.log 2>&1
+    - name: stock-sentinel-evening-report
+      description: "StockSentinel evening report job"
+      command: >-
+        set -a; . {{ app_user_home }}/.env; set +a;
+        PYTHONPATH={{ app_user_home }} {{ app_user_home }}/venv/bin/python -m agent.report
+        --type evening --channel {{ report_ch }} >> {{ app_user_home }}/logs/evening.log 2>&1
+    - name: stock-sentinel-news-scan
+      description: "StockSentinel news scanner job"
+      command: >-
+        set -a; . {{ app_user_home }}/.env; set +a;
+        PYTHONPATH={{ app_user_home }} {{ app_user_home }}/venv/bin/python -m agent.news_scanner
+        --channel {{ alert_ch }} >> {{ app_user_home }}/logs/scan.log 2>&1
+    - name: stock-sentinel-market-scan
+      description: "StockSentinel market scanner job"
+      command: >-
+        set -a; . {{ app_user_home }}/.env; set +a;
+        PYTHONPATH={{ app_user_home }} {{ app_user_home }}/venv/bin/python -m agent.market_scan
+        --channel {{ scan_ch }} >> {{ app_user_home }}/logs/scan.log 2>&1
+    - name: stock-sentinel-heartbeat
+      description: "StockSentinel heartbeat job"
+      command: >-
+        set -a; . {{ app_user_home }}/.env; set +a;
+        PYTHONPATH={{ app_user_home }} {{ app_user_home }}/venv/bin/python -m agent.heartbeat
+        --channel {{ log_ch }} >> {{ app_user_home }}/logs/heartbeat.log 2>&1
+
+    - name: stock-sentinel-data-sync
+      description: "StockSentinel data sync job"
+      command: >-
+        set -a; . {{ app_user_home }}/.env; set +a;
+        PYTHONPATH={{ app_user_home }} {{ app_user_home }}/venv/bin/python -m agent.data_sync
+        --channel {{ log_ch }} >> {{ app_user_home }}/logs/data_sync.log 2>&1
+
+- name: Deploy scheduled job timer units
+  tags: [deploy]
+  ansible.builtin.template:
+    src: agent-job.timer.j2
+    dest: "/etc/systemd/system/{{ item.name }}.timer"
+    mode: "0644"
+  loop:
+    - name: stock-sentinel-morning-report
+      description: "StockSentinel morning report timer"
+      on_calendar: "{{ morning_time }}:00"
+      timezone: "{{ cron_tz }}"
+    - name: stock-sentinel-evening-report
+      description: "StockSentinel evening report timer"
+      on_calendar: "{{ evening_time }}:00"
+      timezone: "{{ cron_tz }}"
+    - name: stock-sentinel-news-scan
+      description: "StockSentinel news scanner timer"
+      on_unit_active_sec: "{{ news_scan_minutes }}m"
+    - name: stock-sentinel-market-scan
+      description: "StockSentinel market scanner timer"
+      on_unit_active_sec: "{{ market_scan_minutes }}m"
+    - name: stock-sentinel-heartbeat
+      description: "StockSentinel heartbeat timer"
+      on_calendar: "{{ heartbeat_time }}:00"
+      timezone: "{{ cron_tz }}"
+    - name: stock-sentinel-data-sync
+      description: "StockSentinel data sync timer"
+      on_calendar: "{{ data_sync_time }}:00"
+      timezone: "{{ cron_tz }}"
+      
+- name: Reload systemd daemon for scheduled jobs
+  tags: [deploy]
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Ensure scheduled job timers are enabled and running
+  tags: [deploy]
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - stock-sentinel-morning-report.timer
+    - stock-sentinel-evening-report.timer
+    - stock-sentinel-news-scan.timer
+    - stock-sentinel-market-scan.timer
+    - stock-sentinel-heartbeat.timer
+    - stock-sentinel-data-sync.timer

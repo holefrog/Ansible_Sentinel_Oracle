@@ -1,0 +1,29 @@
+---
+- name: Update apt cache and upgrade installed packages
+  tags: [check]
+  ansible.builtin.apt:
+    update_cache: true
+    upgrade: "yes"
+
+- name: Ensure tzdata is installed
+  tags: [system]
+  ansible.builtin.apt:
+    name: tzdata
+    state: present
+
+- name: Set system timezone
+  tags: [system]
+  community.general.timezone:
+    name: "{{ vps_timezone }}"
+
+- name: Print VPS basic runtime information
+  tags: [check, always]
+  block:
+    - name: Execute system status query commands
+      ansible.builtin.shell: free -h && df -h / && uptime
+      register: info
+      changed_when: false
+
+    - name: Output memory, disk and load results
+      ansible.builtin.debug:
+        msg: "{{ info.stdout_lines }}"

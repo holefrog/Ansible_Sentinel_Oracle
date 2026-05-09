@@ -1,0 +1,43 @@
+{{ define "main" }}
+<h1>{{ .Title }}</h1>
+
+{{/* 1. 抓取父级目录的所有文章（核心：.Parent.RegularPages） */}}
+{{ $pages := .Parent.RegularPages.ByDate.Reverse }}
+
+{{/* 2. 执行分页 */}}
+{{ $paginator := .Paginate $pages }}
+
+{{/* 3. 按年份分组展示（仅当前页条目） */}}
+{{ range $paginator.Pages.GroupByDate "2006" }}
+    <h2 style="border-bottom: 2px solid #333;">{{ .Key }} 年</h2>
+    {{ range .Pages.GroupByDate "01 月" }}
+        <h3 style="margin-left: 20px;">{{ .Key }}</h3>
+        <ul style="list-style: none; padding-left: 0;">
+            {{ range .Pages }}
+            <li style="display: flex; gap: 15px; margin-bottom: 10px; margin-left: 40px; align-items: flex-start;">
+                {{/* 显示完整时间戳：年-月-日 时:分，固定宽度 140px 确保对齐 */}}
+                <span style="font-family: monospace; flex-shrink: 0; width: 140px; color: #666;">
+                    {{ .Date.Format "2006-01-02 15:04" }}
+                </span>
+                
+                {{/* 标题内容 */}}
+                <a href="{{ .RelPermalink }}" style="text-decoration: none; color: #007bff; flex-grow: 1;">
+                    {{ .Title }}
+                </a>
+            </li>
+            {{ end }}
+        </ul>
+    {{ end }}
+{{ end }}
+
+{{/* 4. 分页导航 */}}
+{{ if gt $paginator.TotalPages 1 }}
+    <div class="pagination-wrapper" style="margin-top: 30px;">
+        {{ template "_internal/pagination.html" . }}
+    </div>
+{{ end }}
+
+<div style="margin-top: 50px; border-top: 1px solid #eee; padding-top: 20px;">
+    <a href="{{ "" | relURL }}" style="text-decoration: none; color: #666;">🏠 返回决策中心</a>
+</div>
+{{ end }}

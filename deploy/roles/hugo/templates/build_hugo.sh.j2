@@ -1,0 +1,21 @@
+#!/bin/bash
+# ANSIBLE MANAGED: Hugo compilation wrapper
+
+echo "================================================================="
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] 开始执行 Hugo 构建..."
+echo "工作目录: {{ app_user_home }}/hugo"
+
+cd "{{ app_user_home }}/hugo" || { echo "❌ 切换到工作目录失败"; exit 1; }
+
+if {{ hugo_path }} --gc --cleanDestinationDir \
+  -b "https://{{ domain }}{% if sentinel_prefix %}/{{ sentinel_prefix }}{% endif %}/" \
+  --destination "{{ web_base }}/{{ domain }}{% if sentinel_prefix %}/{{ sentinel_prefix }}{% endif %}"; then
+    
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✅ Hugo 构建与全站同步成功！"
+    echo "门户、新闻与报告已全部上线。"
+else
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ❌ Hugo 构建失败！"
+    exit 1
+fi
+
+echo "================================================================="

@@ -1,0 +1,36 @@
+---
+- name: Deploy Hugo site config
+  tags: [hugo, deploy]
+  ansible.builtin.template:
+    src: hugo.toml.j2
+    dest: "{{ app_user_home }}/hugo/hugo.toml"
+    owner: "{{ app_user_name }}"
+    group: "{{ app_user_name }}"
+    mode: "0644"
+
+- name: Deploy layouts
+  tags: [hugo, deploy]
+  ansible.builtin.copy:
+    src: layouts/
+    dest: "{{ app_user_home }}/hugo/layouts/"
+    owner: "{{ app_user_name }}"
+    group: "{{ app_user_name }}"
+    mode: "0644"
+
+- name: Deploy static assets
+  tags: [hugo, deploy]
+  ansible.builtin.copy:
+    src: static/
+    dest: "{{ app_user_home }}/hugo/static/"
+    owner: "{{ app_user_name }}"
+    group: "{{ app_user_name }}"
+    mode: "0644"
+
+- name: Deploy content skeleton
+  tags: [hugo, deploy]
+  ansible.builtin.copy:
+    src: content/
+    dest: "{{ app_user_home }}/hugo/content/"
+    owner: "{{ app_user_name }}"
+    group: "{{ app_user_name }}"
+    mode: "0644"

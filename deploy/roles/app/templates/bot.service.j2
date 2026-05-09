@@ -1,0 +1,22 @@
+# bot.service — 由 Ansible 自动生成
+
+[Unit]
+Description=StockSentinel Discord Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ app_user_name }}
+Group={{ app_user_name }}
+WorkingDirectory={{ app_user_home }}
+EnvironmentFile={{ app_user_home }}/.env
+ExecStart={{ app_user_home }}/venv/bin/python -m agent.bot
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier={{ service_name }}
+
+[Install]
+WantedBy=multi-user.target

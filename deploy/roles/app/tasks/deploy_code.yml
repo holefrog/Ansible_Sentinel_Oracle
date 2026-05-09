@@ -1,0 +1,25 @@
+---
+- name: Upload Agent source code
+  tags: [deploy]
+  ansible.builtin.copy:
+    # 使用变量解耦路径依赖，同时提供默认值以兼容当前目录结构
+    src: "{{ app_agent_source_dir | default(playbook_dir + '/../agent/') }}"
+    dest: "{{ app_user_home }}/agent/"
+    mode: "0644"
+    owner: "{{ app_user_name }}"
+    group: "{{ app_user_name }}"
+  notify: Restart bot
+
+- name: Sync configuration TOML files (Except hugo.toml)
+  tags: [deploy, secrets]
+  ansible.builtin.copy:
+    # 同样将其抽象为外部注入变量
+    src: "{{ app_config_source_dir | default(playbook_dir + '/../config/') }}{{ item }}"
+    dest: "{{ app_user_home }}/config/{{ item }}"
+    mode: "0644"
+    owner: "{{ app_user_name }}"
+    group: "{{ app_user_name }}"
+  loop:
+    - "watch_list.toml"
+    - "settings.toml"
+  notify: Restart bot

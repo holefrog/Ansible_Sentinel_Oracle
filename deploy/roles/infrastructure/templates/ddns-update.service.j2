@@ -1,0 +1,10 @@
+[Unit]
+Description=Update DDNS record when public IP changes
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/ddns_update.sh
+User=root
+Group=root

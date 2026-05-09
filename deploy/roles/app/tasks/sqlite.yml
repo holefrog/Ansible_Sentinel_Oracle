@@ -1,0 +1,7 @@
+---
+- name: Install SQLite3 for database management
+  tags: [app, packages, sqlite]
+  ansible.builtin.apt:
+    name: sqlite3
+    state: present
+    update_cache: true

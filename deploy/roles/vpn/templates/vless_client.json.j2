@@ -1,0 +1,25 @@
+{
+  "log": {"loglevel": "warning"},
+  "inbounds": [{"port": {{ xray_internal_port }}, "listen": "127.0.0.1", "protocol": "socks", "settings": {"udp": true}}],
+  "outbounds": [{
+    "protocol": "vless",
+    "settings": {
+      "vnext": [{
+        "address": "{{ domain }}",
+        "port": 443,
+        "users": [{"id": "{{ xray_keys.uuid }}", "encryption": "none", "flow": "xtls-rprx-vision"}]
+      }]
+    },
+    "streamSettings": {
+      "network": "tcp",
+      "security": "reality",
+      "realitySettings": {
+        "serverName": "www.microsoft.com",
+        "fingerprint": "chrome",
+        "publicKey": "{{ xray_keys.public_key }}",
+        "shortId": "{{ xray_keys.short_id }}",
+        "spiderX": ""
+      }
+    }
+  }]
+}

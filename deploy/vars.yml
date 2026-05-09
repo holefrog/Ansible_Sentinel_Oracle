@@ -1,0 +1,27 @@
+# ── 系统配置 ────────────────────────────────────────────────
+vps_timezone: "America/New_York"
+
+# ── 域名与路径 ──────────────────────────────────────────────
+domain: "myoracle.dynamic-dns.net"
+web_base: "/usr/share/nginx"
+sentinel_prefix: "sentinel"
+hugo_path: "/usr/local/bin/hugo"
+
+# ── 服务配置 ────────────────────────────────────────────────
+service_name:     "stock-sentinel-bot"
+data_sync_time:  "17:00"
+
+# ── 应用用户 ────────────────────────────────────────────────
+app_user_name: "sentinel"
+app_user_home: "/opt/stock-sentinel"
+app_user_shell: "/bin/bash"
+app_user_key_path: "{{ playbook_dir }}/sentinel.key"
+
+# ── VPN (Xray) 配置 ─────────────────────────────────────────
+vpn_service_name: "xray"
+xray_internal_port: 10086
+xray_path_url: "xray-hidden"
+vpn_user: "nobody"
+vpn_group: "nogroup"
+web_user: "www-data"
+shared_data_dir: "{{ web_base }}/{{ domain }}/{{xray_path_url}}"

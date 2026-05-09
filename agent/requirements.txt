@@ -1,0 +1,11 @@
+# Stage B
+discord.py==2.3.2
+tomli==2.0.1
+psutil==5.9.8
+numpy<2.0          # 解决 Numpy 2.0 C-API 不兼容问题
+pandas==2.2.3      # Python 3.12 兼容版本（Oracle Ubuntu 24）
+finnhub-python==2.4.20  # 数据引擎 Finnhub 源（备用 / 降级）
+tomli-w==1.0.0
+requests>=2.31.0
+curl_cffi==0.13.0
+trafilatura>=1.6.0

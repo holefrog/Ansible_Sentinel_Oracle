@@ -1,0 +1,15 @@
+---
+- name: Bootstrap system baseline
+  ansible.builtin.import_tasks: bootstrap.yml
+
+- name: Configure swap
+  ansible.builtin.import_tasks: swap.yml
+
+- name: Install common packages
+  ansible.builtin.import_tasks: packages.yml
+
+- name: Configure firewall
+  ansible.builtin.import_tasks: firewall.yml
+
+- name: Configure DDNS
+  ansible.builtin.import_tasks: ddns.yml

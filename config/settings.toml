@@ -1,0 +1,378 @@
+                                              # ============================================================
+# Stock Sentinel — config/settings.toml
+# 全局行为配置，不入 git，从 settings.toml.example 复制后填写
+# ============================================================
+
+# ── Discord ──────────────────────────────────────────────────
+[discord]
+guild_id          = "1490210337041944598"
+
+report_channel_id = "1490212708795023470"
+scan_channel_id   = "1495603884532695191"
+alert_channel_id  = "1495609759439655023"
+notice_channel_id = "1497107825468641310"
+log_channel_id    = "1496387275901239306"
+advisor_channel_id = "1501696693576663192"
+
+
+api_base_url      = "https://discord.com/api/v10"
+user_agent        = "StockSentinel/1.0"
+
+# ── 数据同步 ───────────────────────────────────────────────────
+[data_sync]
+# 交易日缺口检测回溯自然日数
+lookback_days                = 14
+
+# 公司新闻保留天数
+company_news_retention_days  = 7
+
+# 每次拉取公司新闻的天数范围
+company_news_fetch_days      = 3
+
+# 技术指标缓存有效期（小时）
+tech_cache_ttl_hours         = 4
+
+# 分析师目标价缓存有效期（小时）
+estimates_cache_ttl_hours    = 24
+
+
+[discord.bot_prompt]
+system = """
+你是一个专业的金融与技术助手，请根据用户的指令提供准确的回答。
+"""
+
+# ── 调度 ──────────────────────────────────────────────────────
+[schedule]
+cron_tz                    = "America/New_York"
+morning_report             = "07:30"
+evening_report             = "18:30"
+heartbeat                  = "19:00"
+
+
+# ── 市场扫描阈值 ───────────────────────────────────────────────
+[market]
+market_scan_interval_minutes = 5
+alert_threshold_pct  = 2.5
+volume_spike_threshold = 1.5
+
+
+# ── 新闻处理 ───────────────────────────────────────────────────
+[news]
+# 超过 30 天的去重记录自动清理
+retention_days = 30
+
+# 新闻扫描间隔
+news_scan_interval_minutes = 15
+# 请求间随机延迟（秒），防止被 SEC 反爬
+request_delay_min = 1
+request_delay_max = 3
+
+# 过滤门槛
+relevance_threshold = 6
+# 只有摘要超过 40 字符才进行 AI 深度解析
+summary_min_length = 40
+
+
+[news.filter_prompt]
+system = """
+你是一个华尔街极客量化分析师。你的任务是评估新闻对我们的核心关注标的（{watch_list}）以及美国宏观经济、地缘政治的实质性影响。
+请对提供的每条新闻进行 0-10 分打分。
+- 8-10分：直接影响关注标的的财报/基本面、重大宏观数据（加息/非农/CPI）、突发重大地缘政治或黑天鹅事件（大选/战争/灾难）。
+- 5-7分：相关行业的整体趋势、竞品动态、普通的产品或技术发布。
+- 0-4分：公关稿、人事八卦、蹭热度的无效资讯、无关的股市花边。
+
+严格输出合法 JSON 数组，不含任何说明文字和 markdown 代码块标记：
+[{"guid": "传入的guid", "score": 8, "reason": "打分理由简述"}]
+"""
+
+[news.title_translation_prompt]
+system = """
+你是一个专业的华尔街财经翻译助手。请将以下英文新闻标题极其精准、流畅地翻译为中文。绝对不要输出拼音，不要加引号，只返回最终翻译结果本身。
+"""
+
+[news.full_translation_prompt]
+system = """
+你是一个极其严谨的金融分析师。请将以下输入的美股新闻或官方监管文件翻译成中文并深度提取核心要点。
+
+【特定文件解析规则】：
+- 如果文本看起来是 **SEC 8-K 报告**：请自动过滤并跳过所有模板化的法律免责声明（如前瞻性陈述），重点提取引发该报告的具体事件内容（如高管变动、并购进展、财务指标等）。
+- 如果文本看起来是 **SEC Form 4（内部人交易）**：请放弃段落翻译，直接以简明列表形式提取核心交易数据：1. 交易人姓名及职位 2. 交易类型（增持/减持） 3. 交易数量 4. 交易均价。
+
+【绝对红线】：
+1. 严禁使用任何外部知识进行扩写、脑补或推理。你的输出必须 100% 来源于我提供的文本。
+2. 如果输入文本极短（例如只有一两句话的标题或摘要），请直接提供精准翻译即可，**绝对不要**强行拆分多条要点、不要生成“深度解析”等废话。
+3. 保持金融术语准确，条理清晰。
+"""
+
+[[news.sources]]
+name             = "美联储声明"
+type             = "rss"
+url              = "https://www.federalreserve.gov/feeds/press_all.xml"
+enabled          = true
+channel          = "notice"
+min_score        = 6
+scrape_full_text = true
+
+[[news.sources]]
+name             = "SEC 8-K"
+type             = "rss"
+url              = "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-K&dateb=&owner=include&count=40&output=atom"
+enabled          = true
+channel          = "notice"
+min_score        = 6
+scrape_full_text = true
+
+[[news.sources]]
+name             = "SEC Form 4 内部人交易"
+type             = "rss"
+url              = "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=4&dateb=&owner=include&count=40&output=atom"
+enabled          = true
+channel          = "notice"
+min_score        = 6
+scrape_full_text = true
+
+[[news.sources]]
+name             = "Yahoo Finance 宏观新闻"
+type             = "rss"
+url              = "https://finance.yahoo.com/news/rssindex"
+enabled          = true
+channel          = "alert"
+min_score        = 6
+scrape_full_text = true
+
+[[news.sources]]
+name             = "CNBC 市场新闻"
+type             = "rss"
+url              = "https://www.cnbc.com/id/10001147/device/rss/rss.html"
+enabled          = true
+channel          = "alert"
+min_score        = 6
+scrape_full_text = true
+
+[[news.sources]]
+name             = "Finnhub 个股新闻"
+type             = "finnhub"
+enabled          = true
+channel          = "alert"
+min_score        = 6
+scrape_full_text = false
+
+# ── 报告生成 ───────────────────────────────────────────────────
+[report]
+# 汇总时参考的当日高分新闻最大数量
+max_news_items = 20
+# 只有评分超过 7 分的新闻才有资格进入阿尔法报告
+min_score_threshold = 6
+
+
+[report.summary_prompt]
+system = """
+Role:
+你是一位资深的华尔街美股宏观分析师。
+
+Task:
+我会给你提供一份今天高价值新闻的 JSON 数组，格式为：[{"title": "新闻标题", "content": "新闻的详细正文或核心概要"}]。
+你的任务是：仔细阅读这些 content（正文细节），撰写一份专业、深度的收盘市场解读。
+
+Output Requirements:
+- 语言: 中文
+- 排版: 请使用结构化的 Markdown 排版（包括清晰的段落标题、加粗重点、要点列表等，仅在对比数据时使用表格辅助），以适合在 Discord 和网页上阅读。
+- 风格: 报告应具有 PDF 风格的专业感，严禁废话
+"""
+
+[report.anomaly_prompt]
+system = """
+Role:
+你是一个华尔街顶级日内交易员，对市场情绪和突发新闻极度敏感。
+
+我会给你提供一份今天高价值新闻的 JSON 数组，格式为：[{"title": "新闻标题", "content": "新闻的详细正文或核心概要"}]。
+
+分析维度：
+1. 消息面：是否有财报预览、大单中标、监管变动或分析师调价？
+2. 技术面：是否触发了关键点位（如 200 日线、历史高点）的突破或破位？
+3. 外部关联：是否受同板块龙头或宏观数据（如非农/CPI）的带动？
+
+要求：
+- 语言：中文
+- 结论：必须明确给出"异动诱因"和"确定性评分 (0-10)"
+- 格式：使用 Discord 友好的 Markdown 排版
+- 禁忌：严禁文学化描述，只看事实和逻辑
+"""
+
+[report.advisor_prompt]
+system = """
+你是一个顶级的华尔街对冲基金经理和量化分析师，专注于美股交易。
+现在有一只股票发生了市场异动，我将为你提供该股票的实时量化指标、华尔街一致预期、近期新闻催化剂，以及用户的真实持仓成本和策略。
+
+请你综合这些信息，给出一份定量、客观、冷血的交易建议报告。
+
+你的输出必须遵循以下 Markdown 格式结构：
+🚨 **私人投顾 Agent | 深度交易建议**
+**[股票名称] ([股票代码])** 当前价格: **$[当前价格]**
+
+📰 **催化剂分析 (定性):** 
+[一句话总结引发异动的核心新闻及其性质（利好/利空/情绪错杀），不要大段复述新闻。如果没新闻，就说"未发现明显消息面催化剂"。]
+
+📊 **量化与技术面 (定量):**
+* **趋势:** [结合提供的 SMA50 和 SMA200 判断，例如"跌破50日均线支撑"、"在200日均线处企稳"等。]
+* **RSI (14):** [结合提供的 RSI 值判断，例如"30(极度超卖)"、"70(面临回调风险)"等。]
+* **华尔街共识:** [列出提供的平均目标价和最高/低目标价，对比当前价格，指出潜在上涨/下跌空间。]
+
+💼 **您的持仓诊断:**
+【如果有持仓数据，请按以下格式输出：】
+* **当前持仓:** [填入提供的数据] 股
+* **持仓成本:** $[填入提供的数据]
+* **未结盈亏:** [计算并填入：+百分比 (具体美元金额)]
+* **策略定位:** [填入提供的数据，如"长线"]
+【如果没有持仓，请输出：】
+* **当前持仓:** 无
+* **分析视角:** 作为潜在新建仓位进行评估
+
+🎯 **操作建议 (Action Plan):**
+【[给出明确的行动标签，如：逢低加仓 / 止盈减仓 / 严格止损 / 持有观望]】
+1. **机会:** [一句话分析潜在上行机会]
+2. **风险:** [一句话分析潜在下行风险]
+3. **具体操作:** [这是最重要的部分。给出带具体价格数字的操作建议。如果是减仓，说出减仓比例；如果是加仓，说出入场区间；**如果是止损，必须给出一个硬性的数字跌破止损位**。]
+
+严禁废话，严禁模糊的"可能上涨也可能下跌"的废话，像一个真正的基金经理一样做出决断。
+"""
+
+# ── LLM 引擎 ───────────────────────────────────────────────────
+[[llm.engines]]
+name             = "groq"
+url              = "https://api.groq.com/openai/v1/chat/completions"
+model            = "llama-3.1-8b-instant"
+priority         = 1  # 最高优先级：免费且极速，适合处理 15 分钟一次的批量新闻打分
+roles            = ["scoring", "translation", "summary", "anomaly"] # 支持基础翻译、打分，以及简单的总结和异常分析
+quota            = 14400
+max_tokens       = 4096
+payload_template = '''
+{
+  "model": "{model}",
+  "messages": [
+    {"role": "system", "content": "{sys}"},
+    {"role": "user", "content": "{user}"}
+  ],
+  "max_tokens": {max_tokens},
+  "temperature": 0.1
+}
+'''
+
+[[llm.engines]]
+name             = "mistral"
+url              = "https://api.mistral.ai/v1/chat/completions"
+model            = "mistral-small-latest"
+priority         = 2
+roles            = ["scoring", "translation", "summary", "anomaly"]
+quota            = 5000
+max_tokens       = 4096
+payload_template = '''
+{
+  "model": "{model}",
+  "messages": [
+    {"role": "system", "content": "{sys}"},
+    {"role": "user", "content": "{user}"}
+  ],
+  "max_tokens": {max_tokens},
+  "temperature": 0.1
+}
+'''
+
+[[llm.engines]]
+name             = "nvidia"
+url              = "https://integrate.api.nvidia.com/v1/chat/completions"
+model            = "meta/llama-3.3-70b-instruct"
+priority         = 3  # 与 OpenAI 并列为二级备选，提供 70B 级别的免费调用
+roles            = ["translation", "scoring",  "summary", "anomaly"]
+quota            = 5000
+max_tokens       = 4096
+timeout          = 90
+payload_template = '''
+{
+  "model": "{model}",
+  "messages": [
+    {"role": "system", "content": "{sys}"},
+    {"role": "user", "content": "{user}"}
+  ],
+  "max_tokens": {max_tokens}
+}
+'''
+
+
+[[llm.engines]]
+name             = "gemini"
+url              = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent"
+model            = "gemini-3-flash-preview"
+priority         = 4
+roles            = ["translation", "scoring", "summary", "anomaly"] # 适合长文本翻译及全局兜底
+quota            = 1000
+api_key_location = "query"
+api_key_name     = "key"
+response_format  = "gemini"
+payload_template = '''
+{
+  "system_instruction": {"parts": [{"text": "{sys}"}]},
+  "contents": [{"parts": [{"text": "{user}"}]}]
+}
+'''
+
+[[llm.engines]]
+name             = "openai"
+url              = "https://api.openai.com/v1/chat/completions"
+model            = "gpt-4o-mini"
+priority         = 5
+roles            = ["scoring", "translation", "summary", "anomaly"] # 作为强力 JSON 及复杂任务兜底
+quota            = 5000
+max_tokens       = 4096
+payload_template = '''
+{
+  "model": "{model}",
+  "messages": [
+    {"role": "system", "content": "{sys}"},
+    {"role": "user", "content": "{user}"}
+  ],
+  "max_tokens": {max_tokens}
+}
+'''
+
+[[llm.engines]]
+name             = "deepl"
+url              = "https://api-free.deepl.com/v2/translate"
+model            = "deepl-free"
+priority         = 1  # 翻译质量最优，优先调用；因免费额度较少(50万字符/月)，耗尽后由 Router 自动切换备用 LLM
+roles            = ["translation"] # 专属负责纯翻译任务
+quota            = 500
+api_key_location = "header"
+api_key_name     = "Authorization"
+api_key_format   = "DeepL-Auth-Key {key}"
+response_format  = "deepl"
+payload_template = '''
+{
+  "text": ["{user}"],
+  "target_lang": "ZH"
+}
+'''
+
+[[llm.engines]]
+name            = "claude"
+url             = "https://api.anthropic.com/v1/messages"
+model           = "claude-3-5-sonnet-20241022"
+priority        = 1   # 在它自己的专属赛道里，它是绝对的第一优先级
+roles           = ["summary", "report", "anomaly"] # 专属负责高质量研报和深度异动分析
+quota           = 1000
+max_tokens      = 4096
+cost_per_1m_in  = 3.0
+cost_per_1m_out = 15.0
+api_key_location= "header"
+api_key_name    = "x-api-key"
+api_key_format  = "{key}"
+response_format = "claude"
+extra_headers   = { "anthropic-version" = "2023-06-01" }
+payload_template = '''
+{
+  "model": "{model}",
+  "system": "{sys}",
+  "messages": [{"role": "user", "content": "{user}"}],
+  "max_tokens": {max_tokens}
+}
+'''

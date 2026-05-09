@@ -1,0 +1,19 @@
+# 根据客户端 TLS 握手中的 SNI (Server Name Indication) 预读进行流量分发
+map $ssl_preread_server_name $backend_name {
+    www.microsoft.com xray_backend; # Xray Reality SNI
+    default          web_backend;  # 其他请求（如直接 IP 访问、被墙探测等）回落到本地 Web
+}
+upstream xray_backend {
+    server 127.0.0.1:{{ xray_internal_port }}; # 转发给 Xray 监听的本地端口
+}
+
+upstream web_backend {
+    server 127.0.0.1:4433; # Nginx HTTPS 实际处理 Web 伪装响应的内部端口
+}
+
+server {
+    listen 443 reuseport;
+    listen [::]:443 reuseport;
+    ssl_preread on;
+    proxy_pass $backend_name;
+}

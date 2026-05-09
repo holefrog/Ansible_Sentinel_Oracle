@@ -1,0 +1,256 @@
+---
+# ==============================================================================
+# 1. 核心安装与基础环境设置
+# ==============================================================================
+
+- name: Check local Xray version
+  # 检查本地是否已安装 Xray，并获取当前版本号输出
+  ansible.builtin.command: /usr/local/bin/xray version
+  register: xray_local
+  ignore_errors: true
+  changed_when: false
+
+- name: Fetch latest Xray release version from GitHub
+  # 查询 GitHub 最新版本号用于对比（避免每次运行都盲目执行安装脚本导致服务重启）
+  ansible.builtin.uri:
+    url: https://api.github.com/repos/XTLS/Xray-core/releases/latest
+    return_content: true
+  register: xray_remote
+  when: xray_local.rc == 0 and not (xray_force_upgrade | default(false))
+  ignore_errors: true
+
+- name: Install and deploy Xray using official script
+  # 真正实现声明式幂等：仅在未安装、版本落后或明确指定强制升级时，才执行安装脚本
+  ansible.builtin.shell: bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
+  when: >
+    xray_local.rc != 0 or
+    (xray_force_upgrade | default(false)) or
+    (xray_remote.json is defined and 'tag_name' in xray_remote.json and (xray_remote.json.tag_name | replace('v', '')) not in xray_local.stdout)
+
+- name: Create Xray log directory
+  # 创建 Xray 运行日志存放目录，并设置正确的权限
+  ansible.builtin.file:
+    path: /var/log/xray
+    state: directory
+    owner: "{{ vpn_user | default('nobody') }}"
+    group: "{{ vpn_group | default('nogroup') }}"
+    mode: '0755'
+
+# ==============================================================================
+# 2. Reality 密钥管理与自愈逻辑 (Self-Healing)
+# ==============================================================================
+
+- name: Check if Reality keys already exist
+  # 检查当前服务器上是否已经存在之前生成的 Reality 密钥文件
+  ansible.builtin.stat:
+    path: /usr/local/etc/xray/reality.json
+  register: reality_keys_file
+
+- name: Verify existing Reality keys are valid
+  # 验证已存在的密钥文件是否合法完整。如果由于意外导致 private_key 为空，该步骤会报错并捕获
+  ansible.builtin.command: python3 -c "import json, sys; d=json.load(open('/usr/local/etc/xray/reality.json')); sys.exit(0 if d.get('private_key') and d.get('public_key') else 1)"
+  register: verify_keys
+  ignore_errors: true
+  changed_when: false
+  when: reality_keys_file.stat.exists
+
+- name: Force delete invalid Reality keys
+  # 自愈机制：如果发现现存密钥文件无效，强制将其删除，为下一步重新生成扫清障碍
+  ansible.builtin.file:
+    path: /usr/local/etc/xray/reality.json
+    state: absent
+  when: reality_keys_file.stat.exists and verify_keys.rc != 0
+
+- name: Re-check Reality keys status after cleanup
+  # 重新获取文件状态，以便后续任务判断是否需要执行生成操作
+  ansible.builtin.stat:
+    path: /usr/local/etc/xray/reality.json
+  register: reality_keys_file
+
+- name: Generate Reality keys and UUID
+  # 生成全新的 Reality 配置要素：UUID、X25519 公私钥对、ShortID
+  ansible.builtin.shell: |
+    UUID=$(/usr/local/bin/xray uuid 2>&1)
+    KEYS=$(/usr/local/bin/xray x25519 2>&1)
+    PRI_KEY=$(echo "$KEYS" | grep -i "PrivateKey" | awk '{print $NF}')
+    PUB_KEY=$(echo "$KEYS" | grep -i "PublicKey" | awk '{print $NF}')
+    SHORT_ID=$(openssl rand -hex 8)
+
+    if [ -z "$PRI_KEY" ] || [ -z "$PUB_KEY" ]; then
+      echo "Error: Failed to generate Xray keys. Raw output:" >&2
+      echo "$KEYS" >&2
+      exit 1
+    fi
+
+    cat <<EOF > /usr/local/etc/xray/reality.json
+    {
+      "uuid": "$UUID",
+      "private_key": "$PRI_KEY",
+      "public_key": "$PUB_KEY",
+      "short_id": "$SHORT_ID"
+    }
+    EOF
+
+    # Verify the newly generated JSON file
+    python3 -c "import json, sys; d=json.load(open('/usr/local/etc/xray/reality.json')); sys.exit(0 if d.get('private_key') and d.get('public_key') else 1)" || {
+      echo "Error: Generated JSON is invalid or incomplete." >&2
+      rm -f /usr/local/etc/xray/reality.json
+      exit 1
+    }
+  when: not reality_keys_file.stat.exists
+
+- name: Load Reality keys into Ansible variables
+  # 读取本机上的 JSON 文件，将其内容提取到 Ansible 运行环境中
+  ansible.builtin.slurp:
+    src: /usr/local/etc/xray/reality.json
+  register: reality_keys_raw
+
+- name: Parse Reality keys
+  # 将提取到的 base64 字符串解码，并解析为 Ansible 的字典变量 (xray_keys)
+  ansible.builtin.set_fact:
+    xray_keys: "{{ reality_keys_raw.content | b64decode | from_json }}"
+
+# ==============================================================================
+# 3. Xray 服务端配置与服务启停
+# ==============================================================================
+
+- name: Render Xray server configuration
+  # 根据提取到的密钥变量 (xray_keys) 渲染最终的 Xray 服务端配置文件
+  ansible.builtin.template:
+    src: xray.json.j2
+    dest: /usr/local/etc/xray/config.json
+    owner: "{{ vpn_user | default('nobody') }}"
+    group: "{{ vpn_group | default('nogroup') }}"
+    mode: '0644'
+  notify: Restart xray
+
+- name: Start and enable Xray service
+  # 确保 Xray 服务启动，并设置开机自启
+  ansible.builtin.systemd:
+    name: xray
+    state: started
+    enabled: true
+
+# ==============================================================================
+# 4. 客户端配置与分享凭证导出 (JSON/链接/二维码)
+# ==============================================================================
+
+- name: Ensure shared data directory exists
+  # 确保用于给 Nginx 提供静态分享（如二维码、链接下载）的目录存在
+  ansible.builtin.file:
+    path: "{{ shared_data_dir }}"
+    state: directory
+    owner: "{{ web_user }}"
+    group: "{{ web_user }}"
+    mode: '0755'
+
+- name: Render Xray client JSON configuration
+  # 渲染一份标准的客户端 config.json，方便用户直接导入到各类 Xray 客户端 (如 v2rayN)
+  ansible.builtin.template:
+    src: vless_client.json.j2
+    dest: "{{ shared_data_dir }}/xray_client.json"
+    owner: "{{ web_user }}"
+    group: "{{ web_user }}"
+    mode: '0644'
+
+- name: Generate VLESS Reality subscription link
+  # 生成标准的 vless:// 订阅链接，保存为文本文件
+  ansible.builtin.template:
+    src: vless_link.txt.j2
+    dest: "{{ shared_data_dir }}/xray_link.txt"
+    owner: "{{ web_user }}"
+    group: "{{ web_user }}"
+    mode: '0644'
+  register: xray_link_file
+
+- name: Ensure qrencode is installed
+  # 安装二维码生成工具
+  ansible.builtin.apt:
+    name: qrencode
+    state: present
+    update_cache: true
+
+- name: Check if QR code already exists
+  ansible.builtin.stat:
+    path: "{{ shared_data_dir }}/xray_qr.png"
+  register: qr_stat
+
+- name: Convert subscription link to QR code PNG
+  # 如果订阅链接有变动，或者二维码图片丢失，则重新将链接文本转换为二维码图片
+  ansible.builtin.shell: |
+    set -o pipefail
+    VLESS_LINK=$(cat {{ shared_data_dir }}/xray_link.txt)
+    echo -n "$VLESS_LINK" | qrencode -o {{ shared_data_dir }}/xray_qr.png -s 10
+  args:
+    executable: /bin/bash
+  when: xray_link_file.changed or not qr_stat.stat.exists
+
+- name: Adjust permissions of generated files
+  # 确保生成的二维码文件具有正确的读取权限，以便 Nginx web 服务器下发
+  ansible.builtin.file:
+    path: "{{ shared_data_dir }}/xray_qr.png"
+    owner: "{{ web_user }}"
+    group: "{{ web_user }}"
+    mode: '0644'
+  when: xray_link_file.changed or not qr_stat.stat.exists
+
+# ==============================================================================
+# 5. 网络集成：Nginx 伪装代理与防火墙放行
+# ==============================================================================
+
+- name: Deploy Xray location configuration
+  # 将配置（如下发凭证下载路由，或 fallback 反向代理路由）整合到 Nginx 中
+  ansible.builtin.template:
+    src: nginx-xray.conf.j2
+    dest: "/etc/nginx/conf.d/{{ domain }}.locations.d/xray.conf"
+    mode: '0644'
+  notify: Reload Nginx
+
+- name: Deploy Xray SNI stream routing configuration
+  # 将去除了外层 stream {} 的 SNI 分流配置放入独立目录
+  ansible.builtin.template:
+    src: nginx-stream-sni.conf.j2
+    dest: /etc/nginx/stream.conf.d/xray-sni.conf
+    mode: '0644'
+  notify: Reload Nginx
+
+- name: Block external access to Xray internal port in iptables (TCP)
+  # 配合 SNI 分流架构，关闭外网直接访问内部端口 (如 10086)，仅允许本地转发
+  ansible.builtin.iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: "{{ xray_internal_port }}"
+    source: "! 127.0.0.1"
+    jump: DROP
+    action: insert
+    rule_num: 1
+  become: true
+  notify: Save iptables rules
+
+- name: Block external access to Xray internal port in ip6tables (TCP)
+  # 配合 SNI 分流架构，关闭 IPv6 外网直接访问内部端口，防止绕过
+  ansible.builtin.iptables:
+    ip_version: ipv6
+    chain: INPUT
+    protocol: tcp
+    destination_port: "{{ xray_internal_port }}"
+    source: "! ::1"
+    jump: DROP
+    action: insert
+    rule_num: 1
+  become: true
+  notify: Save iptables rules
+
+# ==============================================================================
+# 6. 验证服务状态
+# ==============================================================================
+
+- name: Verify service is active
+  # 验证 服务是否已成功启动并处于 active 状态
+  ansible.builtin.command: systemctl is-active {{ vpn_service_name | mandatory }}
+  register: service_status
+  changed_when: false
+
+- name: Display service status
+  ansible.builtin.debug:
+    msg: "✅ Service [ {{ vpn_service_name | mandatory }} ] is currently: {{ service_status.stdout }}"

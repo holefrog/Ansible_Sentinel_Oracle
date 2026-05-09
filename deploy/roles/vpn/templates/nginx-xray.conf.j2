@@ -1,0 +1,19 @@
+# 需求 1：访问根域名时，重定向到 sentinel_prefix 静态网页
+location = / {
+    return 302 /{{ sentinel_prefix }}/;
+}
+
+# 保护和隐蔽原有的 VPN 目录
+location /{{ xray_path_url }}/ {
+    alias {{ shared_data_dir }}/;
+    
+    # 如果直接访问目录，不暴露内容，直接跳转到伪装用的静态网页
+    location = /{{ xray_path_url }}/ {
+        return 302 /{{ sentinel_prefix }}/;
+    }
+    
+    # 仅允许精确匹配文件名才能获取订阅链接和二维码
+    location ~ ^/{{ xray_path_url }}/(xray_qr\.png|xray_link\.txt|xray_client\.json)$ {
+        alias {{ shared_data_dir }}/$1;
+    }
+}

@@ -1,0 +1,12 @@
+[Unit]
+Description=Hugo Builder Service
+After=network.target
+
+[Service]
+Type=oneshot
+User={{ app_user_name }}
+Group={{ app_user_name }}
+WorkingDirectory={{ app_user_home }}/hugo
+ExecStart={{ app_user_home }}/hugo/build_hugo.sh
+StandardOutput=append:{{ app_user_home }}/logs/hugo.log
+StandardError=append:{{ app_user_home }}/logs/hugo.log

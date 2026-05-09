@@ -1,0 +1,14 @@
+---
+- name: Create app directories
+  tags: [deploy, secrets]
+  ansible.builtin.file:
+    path: "{{ app_user_home }}/{{ item }}"
+    state: directory
+    owner: "{{ app_user_name }}"
+    group: "{{ app_user_name }}"
+    mode: "0755"
+  loop:
+    - agent
+    - config
+    - logs
+    - data

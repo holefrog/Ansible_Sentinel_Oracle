@@ -1,0 +1,32 @@
+baseURL = "https://{{ domain }}{% if sentinel_prefix %}/{{ sentinel_prefix }}{% endif %}/"
+theme = "PaperMod"
+
+[pagination]
+    pagerSize = 40
+
+[[menu.main]]
+    identifier = "news"
+    name = "实时预警"
+    url = "news/"
+    weight = 10
+
+[[menu.main]]
+    identifier = "reports"
+    name = "投研报告"
+    url = "reports/"
+    weight = 20
+
+[[menu.main]]
+    identifier = "news_archives"
+    name = "新闻归档"
+    url = "news/archives/"
+    weight = 30
+
+[[menu.main]]
+    identifier = "reports_archives"
+    name = "报告归档"
+    url = "reports/archives/"
+    weight = 40
+
+[markup.goldmark.renderer]
+    unsafe = true

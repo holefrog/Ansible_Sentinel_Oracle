@@ -1,0 +1,26 @@
+---
+- name: Deploy Hugo builder systemd service
+  tags: [hugo, deploy]
+  ansible.builtin.template:
+    src: hugo-builder.service.j2
+    dest: /etc/systemd/system/hugo-builder.service
+    mode: "0644"
+
+- name: Deploy Hugo builder path monitor
+  tags: [hugo, deploy]
+  ansible.builtin.template:
+    src: hugo-builder.path.j2
+    dest: /etc/systemd/system/hugo-builder.path
+    mode: "0644"
+
+- name: Reload systemd daemon
+  tags: [hugo, deploy]
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Ensure Hugo builder path monitor is enabled and active
+  tags: [hugo, deploy]
+  ansible.builtin.systemd:
+    name: hugo-builder.path
+    enabled: true
+    state: started

@@ -1,0 +1,40 @@
+---
+- name: Ensure DDNS state directory exists
+  tags: [ddns]
+  ansible.builtin.file:
+    path: /var/lib/ddns
+    state: directory
+    mode: "0755"
+
+- name: Deploy DDNS update script
+  tags: [ddns]
+  ansible.builtin.template:
+    src: ddns_update.sh.j2
+    dest: /usr/local/bin/ddns_update.sh
+    mode: "0755"
+
+- name: Deploy DDNS systemd service
+  tags: [ddns]
+  ansible.builtin.template:
+    src: ddns-update.service.j2
+    dest: /etc/systemd/system/ddns-update.service
+    mode: "0644"
+
+- name: Deploy DDNS systemd timer
+  tags: [ddns]
+  ansible.builtin.template:
+    src: ddns-update.timer.j2
+    dest: /etc/systemd/system/ddns-update.timer
+    mode: "0644"
+
+- name: Reload systemd daemon for DDNS units
+  tags: [ddns]
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Ensure DDNS timer is enabled and running
+  tags: [ddns]
+  ansible.builtin.systemd:
+    name: ddns-update.timer
+    enabled: true
+    state: started

@@ -1,0 +1,41 @@
+/* 强制分页横向排列 */
+.pagination {
+    display: flex !important;
+    list-index: none;
+    padding-left: 0;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+    margin-top: 20px;
+}
+
+.pagination li {
+    display: inline-flex !important;
+}
+
+.pagination a, .pagination span {
+    display: block;
+    padding: 6px 12px;
+    text-decoration: none;
+    color: #007bff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.pagination .active a {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+    cursor: default;
+}
+
+.pagination .disabled a {
+    color: #ccc;
+    pointer-events: none;
+    background-color: #fafafa;
+}
+
+.pagination a:hover:not(.active) {
+    background-color: #eee;
+}

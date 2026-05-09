@@ -1,0 +1,25 @@
+---
+# agent/tasks/main.yml
+- name: Load agent variables
+  ansible.builtin.import_tasks: vars.yml
+
+- name: Install OS dependencies (SQLite)
+  ansible.builtin.import_tasks: sqlite.yml
+
+- name: Create application directories
+  ansible.builtin.import_tasks: dirs.yml
+
+- name: Deploy agent code and configs
+  ansible.builtin.import_tasks: deploy_code.yml
+
+- name: Prepare Python runtime
+  ansible.builtin.import_tasks: python.yml
+
+- name: Configure bot service
+  ansible.builtin.import_tasks: service.yml
+
+- name: Configure timer schedules
+  ansible.builtin.import_tasks: schedules.yml
+
+- name: Validate service health
+  ansible.builtin.import_tasks: health.yml

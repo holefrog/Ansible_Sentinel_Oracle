@@ -1,0 +1,11 @@
+[Unit]
+Description={{ item.description }}
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User={{ app_user_name }}
+Group={{ app_user_name }}
+WorkingDirectory={{ app_user_home }}
+ExecStart=/bin/bash -lc '{{ item.command }}'
