@@ -193,6 +193,7 @@ def query(sys_prompt: str, user_prompt: str, db_path: str, task_role: str = None
                 continue
             text, model, in_t, out_t, cost = _execute_llm_call(eng, eng['api_key'], sys_prompt, user_prompt)
             log_usage(db_path, eng['name'], model, in_t, out_t, cost)
+            logger.info(f"✅ 引擎 {eng['name']} 调用成功 (消耗 {in_t + out_t} tokens)")
             audit = f"🧠 **AI 审计** | 引擎: `{eng['name'].upper()}` (`{model}`)\n└ 任务: `{task_role or '通用'}` | 消耗: `{in_t + out_t}` | 计费: `${cost:.4f}`"
             return text, audit, eng['name'].upper()
         except Exception as e:

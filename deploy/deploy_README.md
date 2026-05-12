@@ -106,7 +106,7 @@ cd deploy
 | `deepl_api_key` | DeepL API Key |
 | `fred_api_key` | FRED API Key |
 | `changeip_username/password` | DDNS 账户 |
-| `ai_engines.api_key_gemeni` | Gemini API Key |
+| `ai_engines.api_key_gemini` | Gemini API Key |
 | `ai_engines.api_key_nvidia` | NVIDIA API Key |
 | `ai_engines.api_key_claude` | Claude API Key |
 | `ai_engines.api_key_openai` | OpenAI API Key |

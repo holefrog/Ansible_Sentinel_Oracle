@@ -119,8 +119,9 @@ def build_report_embeds(report_type: str, market_context: list, watch_list: list
             
     # 第4/5部分：AI 市场解读
     if ai_summary:
+        display_summary = f"✨ AI 深度市场解读与异动分析已生成。\n\n🔗 **[请点击此处前往网页端阅读完整投研报告及资讯细节]({report_url})**"
         embeds.append(discord_utils.create_embed(
-            description="**📰 AI 市场解读**\n" + ai_summary, color_val=0.0
+            description="**📰 AI 市场解读**\n" + display_summary, color_val=0.0
         ))
     elif not news_items:
         embeds.append(discord_utils.create_embed(
