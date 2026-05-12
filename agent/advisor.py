@@ -87,11 +87,12 @@ def analyze_ticker(ticker: str, current_price: float, change_pct: float, spike_r
 
     partial_note = "\n    ⚠️ 注意：本地日线数据不足200条，SMA200 暂不可用。" if tech_data.get("partial") else ""
 
+    trend = "上涨" if change_pct > 0 else "下跌" if change_pct < 0 else "平盘"
     user_prompt = f"""
     【异动信号】
     股票: {name} ({ticker})
     当前价格: ${actual_price:.2f}
-    异动情况: 日内变动 {change_pct:+.2f}%，成交量放大倍数: {spike_ratio:.1f}x
+    异动情况: 日内变动 {change_pct:+.2f}% (当前趋势: {trend})，成交量放大倍数: {spike_ratio:.1f}x
 
     {position_block}
 
