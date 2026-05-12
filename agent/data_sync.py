@@ -121,38 +121,29 @@ def _sync_candles(db_path: str, ticker: str, trading_days: list):
                 len(missing), ticker, missing[0], missing[-1])
 
     try:
-        import finnhub
-        api_key = os.environ.get("FINNHUB_API_KEY")
-        if not api_key:
-            logger.error("FINNHUB_API_KEY 未配置")
+        import yfinance as yf
+        
+        start_date = missing[0]
+        # 加一天以确保获取到结束当天的数据
+        end_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+
+        df = yf.download(ticker, start=start_date, end=end_date, progress=False)
+        if df.empty:
+            logger.warning("yfinance 返回数据为空：%s", ticker)
             return
 
-        client = finnhub.Client(api_key=api_key)
-
-        # 拉取缺口区间（从最早缺失日到今天）
-        start_ts = int(datetime.strptime(missing[0], "%Y-%m-%d").timestamp())
-        end_ts = int(datetime.now().timestamp())
-
-        res = client.stock_candles(ticker, "D", start_ts, end_ts)
-        time.sleep(1.2)  # Finnhub 免费版限速保护
-
-        if res.get("s") != "ok":
-            logger.warning("Finnhub stock_candles 返回异常状态：%s %s", ticker, res.get("s"))
-            return
-
-        # 组装写入数据
         rows = []
-        dates = [datetime.fromtimestamp(ts).strftime("%Y-%m-%d") for ts in res["t"]]
-        closes = res["c"]
-
-        for d, c in zip(dates, closes):
-            if d not in missing:
-                continue  # 只写入缺失日期，不覆盖已有数据
-
+        for d, row in df.iterrows():
+            date_str = d.strftime("%Y-%m-%d")
+            if date_str not in missing:
+                continue
+                
+            c = float(row['Close'].iloc[0] if isinstance(row['Close'], pd.Series) else row['Close'])
+            
             # 数据质量校验
-            if not c or c <= 0:
-                logger.warning("异常收盘价，标记 suspect：%s %s close=%s", ticker, d, c)
-                rows.append({"date": d, "close": c or 0.0, "quality": "suspect"})
+            if not c or pd.isna(c) or c <= 0:
+                logger.warning("异常收盘价，标记 suspect：%s %s close=%s", ticker, date_str, c)
+                rows.append({"date": date_str, "close": c or 0.0, "quality": "suspect"})
                 continue
 
             # 涨跌幅超过50%标记为 suspect
@@ -162,16 +153,16 @@ def _sync_candles(db_path: str, ticker: str, trading_days: list):
                 if prev_close > 0:
                     change_pct = abs(c - prev_close) / prev_close * 100
                     if change_pct > 50:
-                        logger.warning("涨跌幅异常(%.1f%%)，标记 suspect：%s %s", change_pct, ticker, d)
+                        logger.warning("涨跌幅异常(%.1f%%)，标记 suspect：%s %s", change_pct, ticker, date_str)
                         quality = "suspect"
 
-            rows.append({"date": d, "close": c, "quality": quality})
+            rows.append({"date": date_str, "close": c, "quality": quality})
 
         if rows:
             data_store.save_candles(db_path, ticker, rows)
             logger.info("补录完成：%s 写入 %d 条", ticker, len(rows))
         else:
-            logger.warning("补录结果为空：%s，可能 Finnhub 未包含缺失日期", ticker)
+            logger.warning("补录结果为空：%s，可能 yfinance 未包含缺失日期", ticker)
 
     except Exception as e:
         logger.error("日线补录失败 [%s]: %s", ticker, e)
@@ -232,25 +223,19 @@ def _cache_technical_indicators(db_path: str, ticker: str, tech_cache_ttl_hours:
 # ══════════════════════════════════════════════════════════════
 
 def _cache_analyst_estimates(db_path: str, ticker: str, estimates_cache_ttl_hours: int):
-    """从 Finnhub 拉取分析师目标价并写入 api_cache"""
+    """从 yfinance 拉取分析师目标价并写入 api_cache"""
     cache_key = f"estimates_{ticker}"
 
     try:
-        import finnhub
-        api_key = os.environ.get("FINNHUB_API_KEY")
-        if not api_key:
-            logger.error("FINNHUB_API_KEY 未配置")
-            return
-
-        client = finnhub.Client(api_key=api_key)
-        res = client.price_target(ticker)
-        time.sleep(1.2)
+        import yfinance as yf
+        
+        info = yf.Ticker(ticker).info
 
         result = {
-            "targetHigh": res.get("targetHigh"),
-            "targetLow": res.get("targetLow"),
-            "targetMean": res.get("targetMean"),
-            "numberAnalysts": res.get("numberAnalysts"),
+            "targetHigh": info.get("targetHighPrice"),
+            "targetLow": info.get("targetLowPrice"),
+            "targetMean": info.get("targetMeanPrice"),
+            "numberAnalysts": info.get("numberOfAnalystOpinions"),
         }
 
         ttl_seconds = estimates_cache_ttl_hours * 3600

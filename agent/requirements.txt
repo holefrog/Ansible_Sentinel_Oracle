@@ -8,4 +8,4 @@ finnhub-python==2.4.20  # 数据引擎 Finnhub 源（备用 / 降级）
 tomli-w==1.0.0
 requests>=2.31.0
 curl_cffi==0.13.0
-trafilatura>=1.6.0
+trafilatura>=1.6.0yfinance==0.2.36

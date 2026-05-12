@@ -244,7 +244,7 @@ def get_technical_indicators(ticker: str, db_path: str) -> dict:
 def get_analyst_estimates(ticker: str, db_path: str) -> dict:
     """
     获取华尔街分析师一致预期
-    优先读 api_cache，未命中则从 Finnhub 拉取后写缓存
+    优先读 api_cache，未命中则从 yfinance 拉取后写缓存
     """
     from . import data_store
 
@@ -254,22 +254,17 @@ def get_analyst_estimates(ticker: str, db_path: str) -> dict:
         logger.debug("分析师目标价命中缓存：%s", ticker)
         return cached
 
-    logger.info("分析师目标价缓存未命中，从 Finnhub 拉取：%s", ticker)
+    logger.info("分析师目标价缓存未命中，从 yfinance 拉取：%s", ticker)
     try:
-        import finnhub
-        api_key = os.environ.get("FINNHUB_API_KEY")
-        if not api_key:
-            logger.error("FINNHUB_API_KEY 未配置")
-            return {}
-
-        client = finnhub.Client(api_key=api_key)
-        res = client.price_target(ticker)
+        import yfinance as yf
+        
+        info = yf.Ticker(ticker).info
 
         result = {
-            "targetHigh": res.get("targetHigh"),
-            "targetLow": res.get("targetLow"),
-            "targetMean": res.get("targetMean"),
-            "numberAnalysts": res.get("numberAnalysts"),
+            "targetHigh": info.get("targetHighPrice"),
+            "targetLow": info.get("targetLowPrice"),
+            "targetMean": info.get("targetMeanPrice"),
+            "numberAnalysts": info.get("numberOfAnalystOpinions"),
         }
 
         # 写入缓存，TTL 24小时
