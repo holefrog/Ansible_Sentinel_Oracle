@@ -121,24 +121,47 @@ def _sync_candles(db_path: str, ticker: str, trading_days: list):
                 len(missing), ticker, missing[0], missing[-1])
 
     try:
-        import yfinance as yf
+        import requests
         
+        tiingo_api_key = os.environ.get("TIINGO_API_KEY")
+        if not tiingo_api_key:
+            logger.error("TIINGO_API_KEY 未配置，无法补录日线数据")
+            return
+            
         start_date = missing[0]
         # 加一天以确保获取到结束当天的数据
         end_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
 
-        df = yf.download(ticker, start=start_date, end=end_date, progress=False)
-        if df.empty:
-            logger.warning("yfinance 返回数据为空：%s", ticker)
+        url = f"https://api.tiingo.com/tiingo/daily/{ticker}/prices"
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Token {tiingo_api_key}'
+        }
+        params = {
+            'startDate': start_date,
+            'endDate': end_date
+        }
+        
+        resp = requests.get(url, headers=headers, params=params, timeout=10)
+        
+        if resp.status_code == 404:
+            logger.warning("Tiingo 未找到数据：%s", ticker)
+            return
+        resp.raise_for_status()
+        
+        data = resp.json()
+        if not data:
+            logger.warning("Tiingo 返回数据为空：%s", ticker)
             return
 
         rows = []
-        for d, row in df.iterrows():
-            date_str = d.strftime("%Y-%m-%d")
+        for row in data:
+            # Tiingo returns date as "YYYY-MM-DDTHH:MM:SS.000Z"
+            date_str = row['date'].split('T')[0]
             if date_str not in missing:
                 continue
                 
-            c = float(row['Close'].iloc[0] if isinstance(row['Close'], pd.Series) else row['Close'])
+            c = float(row.get('close', 0.0))
             
             # 数据质量校验
             if not c or pd.isna(c) or c <= 0:
@@ -162,7 +185,7 @@ def _sync_candles(db_path: str, ticker: str, trading_days: list):
             data_store.save_candles(db_path, ticker, rows)
             logger.info("补录完成：%s 写入 %d 条", ticker, len(rows))
         else:
-            logger.warning("补录结果为空：%s，可能 yfinance 未包含缺失日期", ticker)
+            logger.warning("补录结果为空：%s，可能 Tiingo 未包含缺失日期", ticker)
 
     except Exception as e:
         logger.error("日线补录失败 [%s]: %s", ticker, e)
