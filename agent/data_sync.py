@@ -242,31 +242,45 @@ def _cache_technical_indicators(db_path: str, ticker: str, tech_cache_ttl_hours:
 
 
 # ══════════════════════════════════════════════════════════════
-# [5] 分析师目标价缓存
+# [5] 分析师评级缓存
 # ══════════════════════════════════════════════════════════════
 
 def _cache_analyst_estimates(db_path: str, ticker: str, estimates_cache_ttl_hours: int):
-    """从 yfinance 拉取分析师目标价并写入 api_cache"""
+    """从 Finnhub 拉取分析师评级趋势并写入 api_cache"""
     cache_key = f"estimates_{ticker}"
 
     try:
-        import yfinance as yf
+        import finnhub
+        api_key = os.environ.get("FINNHUB_API_KEY")
+        if not api_key:
+            logger.error("FINNHUB_API_KEY 未配置，无法拉取评级数据")
+            return
+            
+        client = finnhub.Client(api_key=api_key)
+        trends = client.recommendation_trends(ticker)
         
-        info = yf.Ticker(ticker).info
+        if not trends:
+            logger.warning("Finnhub 返回评级数据为空：%s", ticker)
+            return
+            
+        # 取最新的一期数据
+        latest = trends[0]
 
         result = {
-            "targetHigh": info.get("targetHighPrice"),
-            "targetLow": info.get("targetLowPrice"),
-            "targetMean": info.get("targetMeanPrice"),
-            "numberAnalysts": info.get("numberOfAnalystOpinions"),
+            "strongBuy": latest.get("strongBuy", 0),
+            "buy": latest.get("buy", 0),
+            "hold": latest.get("hold", 0),
+            "sell": latest.get("sell", 0),
+            "strongSell": latest.get("strongSell", 0),
+            "period": latest.get("period", ""),
         }
 
         ttl_seconds = estimates_cache_ttl_hours * 3600
         data_store.set_cache(db_path, cache_key, result, ttl_seconds)
-        logger.info("分析师目标价缓存完成：%s", ticker)
+        logger.info("分析师评级缓存完成：%s", ticker)
 
     except Exception as e:
-        logger.error("分析师目标价拉取失败 [%s]: %s", ticker, e)
+        logger.error("分析师评级拉取失败 [%s]: %s", ticker, e)
 
 
 # ══════════════════════════════════════════════════════════════
