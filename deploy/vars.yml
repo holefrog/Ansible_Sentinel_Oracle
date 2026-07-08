@@ -20,6 +20,8 @@ app_user_key_path: "{{ playbook_dir }}/sentinel.key"
 # ── VPN (Xray) 配置 ─────────────────────────────────────────
 vpn_service_name: "xray"
 xray_internal_port: 10086
+# Xray Reality 配置
+xray_reality_sni: "www.swift.org"
 xray_path_url: "xray-hidden"
 vpn_user: "nobody"
 vpn_group: "nogroup"

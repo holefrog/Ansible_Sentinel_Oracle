@@ -1,6 +1,6 @@
 # 根据客户端 TLS 握手中的 SNI (Server Name Indication) 预读进行流量分发
 map $ssl_preread_server_name $backend_name {
-    www.microsoft.com xray_backend; # Xray Reality SNI
+    {{ xray_reality_sni }} xray_backend; # Xray Reality SNI
     default          web_backend;  # 其他请求（如直接 IP 访问、被墙探测等）回落到本地 Web
 }
 upstream xray_backend {
