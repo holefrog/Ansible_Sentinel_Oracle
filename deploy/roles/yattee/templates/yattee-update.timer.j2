@@ -1,0 +1,10 @@
+# v1 - Ansible 托管，勿手动修改
+[Unit]
+Description=每周自动更新 yattee-server 定时触发器
+
+[Timer]
+OnCalendar=Mon *-*-* 04:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,96 @@
+---
+- name: Install Docker and related packages
+  ansible.builtin.apt:
+    name:
+      - docker.io
+      - docker-compose-v2
+      - git
+    state: present
+    update_cache: true
+
+- name: Ensure Docker service is running
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Clone yattee-server source
+  ansible.builtin.git:
+    repo: https://github.com/yattee/yattee-server.git
+    dest: "{{ yattee_install_dir }}"
+    update: true
+    version: main
+  become_user: "{{ app_user_name }}"
+
+- name: Template yattee-server .env file
+  ansible.builtin.template:
+    src: yattee.env.j2
+    dest: "{{ yattee_install_dir }}/.env"
+    mode: '0600'
+    owner: "{{ app_user_name }}"
+    group: "{{ app_user_name }}"
+  notify: Restart yattee-server
+
+- name: Start yattee-server container
+  ansible.builtin.command:
+    cmd: docker compose up -d --build
+    chdir: "{{ yattee_install_dir }}"
+  register: yattee_compose_result
+  changed_when: "'Started' in yattee_compose_result.stdout or 'Recreated' in yattee_compose_result.stdout"
+
+# SSL Certificate Handling for Subdomain
+- name: Check if Yattee SSL certificate exists
+  ansible.builtin.stat:
+    path: "/etc/letsencrypt/live/{{ yattee_domain }}/fullchain.pem"
+  register: yattee_ssl_cert
+
+- name: Deploy minimal HTTP-only Nginx configuration for ACME challenge
+  ansible.builtin.template:
+    src: nginx-http.conf.j2
+    dest: "/etc/nginx/conf.d/{{ yattee_domain }}.conf"
+    mode: '0644'
+  when: not yattee_ssl_cert.stat.exists
+  register: yattee_nginx_http_conf
+
+- name: Reload Nginx immediately to load challenge route
+  ansible.builtin.systemd:
+    name: nginx
+    state: reloaded
+  when: yattee_nginx_http_conf.changed
+
+- name: Request Let's Encrypt Certificate for Yattee
+  ansible.builtin.command: >
+    certbot certonly --webroot -w /var/www/certbot
+    -d {{ yattee_domain }}
+    --non-interactive --agree-tos -m admin@{{ domain }}
+    --deploy-hook "systemctl reload nginx"
+  args:
+    creates: "/etc/letsencrypt/live/{{ yattee_domain }}/fullchain.pem"
+
+- name: Deploy full Nginx configuration for Yattee
+  ansible.builtin.template:
+    src: nginx-yattee.conf.j2
+    dest: "/etc/nginx/conf.d/{{ yattee_domain }}.conf"
+    mode: '0644'
+  notify: Reload Nginx
+
+- name: Deploy yattee-update systemd service
+  ansible.builtin.template:
+    src: yattee-update.service.j2
+    dest: /etc/systemd/system/yattee-update.service
+    mode: '0644'
+
+- name: Deploy yattee-update systemd timer
+  ansible.builtin.template:
+    src: yattee-update.timer.j2
+    dest: /etc/systemd/system/yattee-update.timer
+    mode: '0644'
+
+- name: Start and enable yattee-update timer
+  ansible.builtin.systemd:
+    name: yattee-update.timer
+    state: started
+    enabled: true
+    daemon_reload: true
+
+

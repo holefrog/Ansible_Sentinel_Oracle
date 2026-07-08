@@ -1,0 +1,8 @@
+# v1 - Ansible 托管，勿手动修改
+[Unit]
+Description=每周自动更新 yattee-server（重建容器以获取最新 yt-dlp）
+
+[Service]
+Type=oneshot
+WorkingDirectory={{ yattee_install_dir }}
+ExecStart=/bin/bash -c "git pull && docker compose up -d --build"

@@ -1,0 +1,13 @@
+# Minimal HTTP-only config for Let's Encrypt ACME Challenge
+server {
+    listen 80;
+    server_name {{ yattee_domain }};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
