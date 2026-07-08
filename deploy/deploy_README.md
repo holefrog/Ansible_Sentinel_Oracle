@@ -63,6 +63,8 @@ deploy/
 
 3. 确认 `deploy/vars.yml` 里的域名和路径正确。
 
+4. **如果启用了 Yattee 子域名**：要先在 ChangeIP 网站的 **Services** --> **DNS Manager** 中找到你的域名记录，手动增加一条子域名记录：主机名填写 `yattee`，Type 选 `A`，Value 填上和主站点相同的公网 IP（之后 DDNS 脚本就能自动更新它了）。
+
 ### 执行部署
 
 ```bash
