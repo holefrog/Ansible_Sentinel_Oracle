@@ -1,4 +1,8 @@
 ---
+- name: Explicitly load Yattee secrets
+  ansible.builtin.include_vars:
+    file: "{{ role_path }}/defaults/secrets.yml"
+
 - name: Install Docker and related packages
   ansible.builtin.apt:
     name:
