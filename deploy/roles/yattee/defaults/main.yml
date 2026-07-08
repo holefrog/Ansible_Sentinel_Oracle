@@ -1,7 +1,7 @@
 ---
 yattee_domain: "yattee.{{ domain }}"
 yattee_install_dir: "{{ app_user_home }}/yattee"
-yattee_internal_port: 8080
+yattee_internal_port: 8085
 
 # Credentials are kept in secrets.yml or the project's main secrets.yml
 yattee_admin_user: "admin"
