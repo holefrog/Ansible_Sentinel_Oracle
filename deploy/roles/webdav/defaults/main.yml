@@ -1,0 +1,3 @@
+---
+webdav_htpasswd_path: /etc/nginx/.htpasswd-webdav
+webdav_footer_name: _webdav_footer.html

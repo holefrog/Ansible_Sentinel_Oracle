@@ -1,0 +1,33 @@
+<meta charset="utf-8">
+<style>
+  .del-btn { color: #f44; cursor: pointer; margin-left: 12px; text-decoration: none; border: 1px solid #f44; border-radius: 3px;
+  padding: 0 4px; font-size: 12px; }
+  .del-btn:hover { background: #f44; color: #fff; }
+  a[href$="/"]::before { content: "📁 ";
+  }
+  a:not([href$="/"])::before { content: "📄 "; }
+</style>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll('a').forEach(link => {
+    const href = link.getAttribute('href');
+    if (!href || href.startsWith('.') || href === '/') return;
+
+    const btn = document.createElement('a');
+    btn.className = 'del-btn';
+    btn.textContent = '[删除]';
+    btn.onclick = (e) => {
+      e.preventDefault();
+      if (!confirm(`确定删除: ${decodeURIComponent(href)} ?`)) return;
+
+      // 确保 pathname 以斜杠结尾后再拼接 href，防止路径粘连
+      const targetUrl = href.startsWith('/') ? href : window.location.pathname.replace(/\/?$/, '/') + href;
+
+      fetch(targetUrl, { method: 'DELETE' })
+        .then(r => r.ok ?
+        location.reload() : alert('删除失败'));
+    };
+    link.after(btn);
+  });
+});
+</script>

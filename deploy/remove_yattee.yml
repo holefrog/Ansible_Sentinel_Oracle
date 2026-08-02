@@ -1,0 +1,65 @@
+---
+- name: Remove Yattee Services and Configurations
+  hosts: vps
+  become: true
+  vars_files:
+    - secrets.yml
+    - vars.yml
+  vars:
+    # Defining locally just in case the role defaults are unavailable
+    yattee_domain: "yattee.{{ domain }}"
+    yattee_install_dir: "{{ app_user_home }}/yattee"
+
+  tasks:
+    - name: Stop and disable yattee-update timer
+      ansible.builtin.systemd:
+        name: yattee-update.timer
+        state: stopped
+        enabled: false
+      ignore_errors: true
+
+    - name: Stop and disable yattee-update service
+      ansible.builtin.systemd:
+        name: yattee-update.service
+        state: stopped
+      ignore_errors: true
+
+    - name: Remove systemd unit files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/systemd/system/yattee-update.timer
+        - /etc/systemd/system/yattee-update.service
+
+    - name: Reload systemd daemon
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Stop and remove yattee docker containers
+      ansible.builtin.command:
+        cmd: docker compose down -v
+        chdir: "{{ yattee_install_dir }}"
+      ignore_errors: true
+
+    - name: Remove yattee installation directory
+      ansible.builtin.file:
+        path: "{{ yattee_install_dir }}"
+        state: absent
+
+    - name: Remove yattee Nginx configuration
+      ansible.builtin.file:
+        path: "/etc/nginx/conf.d/{{ yattee_domain }}.conf"
+        state: absent
+      register: nginx_conf_removal
+
+    - name: Reload Nginx to apply changes
+      ansible.builtin.systemd:
+        name: nginx
+        state: reloaded
+      when: nginx_conf_removal.changed
+
+    - name: Delete Let's Encrypt certificates for yattee
+      ansible.builtin.command:
+        cmd: "certbot delete --cert-name {{ yattee_domain }} --non-interactive"
+      ignore_errors: true

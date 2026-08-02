@@ -1,0 +1,37 @@
+---
+- name: Install Nginx WebDAV extension module
+  ansible.builtin.apt:
+    name: libnginx-mod-http-dav-ext
+    state: present
+
+- name: Ensure shared download directory exists
+  # aria2 和 webdav 共享同一个下载目录 ({{ shared_data_dir }})
+  # 由本 role 负责创建，确保权限一致
+  ansible.builtin.file:
+    path: "{{ shared_data_dir }}"
+    state: directory
+    owner: "{{ web_user }}"
+    group: "{{ web_user }}"
+    mode: '0755'
+
+- name: Deploy WebDAV htpasswd credentials
+  ansible.builtin.template:
+    src: htpasswd.j2
+    dest: "{{ webdav_htpasswd_path }}"
+    mode: '0640'
+    owner: "{{ web_user }}"
+  notify: Reload nginx
+
+- name: Deploy WebDAV footer UI script
+  ansible.builtin.template:
+    src: webdav_footer.html.j2
+    dest: "{{ web_base }}/{{ domain }}/{{ webdav_footer_name }}"
+    owner: "{{ web_user }}"
+    mode: '0644'
+
+- name: Deploy WebDAV Nginx routing configuration
+  ansible.builtin.template:
+    src: nginx-webdav.conf.j2
+    dest: "/etc/nginx/conf.d/{{ domain }}.locations.d/webdav.conf"
+    mode: '0644'
+  notify: Reload nginx

@@ -1,0 +1,42 @@
+---
+- name: Install Aria2
+  ansible.builtin.apt:
+    name: aria2
+    state: present
+
+- name: Create Aria2 configuration directory
+  ansible.builtin.file:
+    path: /etc/aria2
+    state: directory
+    owner: "{{ web_user }}"
+    group: "{{ web_user }}"
+    mode: '0755'
+
+- name: Render Aria2 configuration file
+  ansible.builtin.template:
+    src: aria2.conf.j2
+    dest: /etc/aria2/aria2.conf
+    owner: "{{ web_user }}"
+    mode: '0644'
+  notify: Restart aria2
+
+- name: Deploy Aria2 Nginx routing configuration
+  ansible.builtin.template:
+    src: nginx-aria2.conf.j2
+    dest: "/etc/nginx/conf.d/{{ domain }}.locations.d/aria2.conf"
+    mode: '0644'
+  notify: Reload nginx
+
+- name: Deploy Systemd service (running as web_user)
+  ansible.builtin.template:
+    src: aria2.service.j2
+    dest: /etc/systemd/system/aria2.service
+    mode: '0644'
+  notify: Restart aria2
+
+- name: Start and enable Aria2 service
+  ansible.builtin.systemd:
+    name: aria2
+    state: started
+    enabled: true
+    daemon_reload: true

@@ -1,0 +1,28 @@
+location /webdav {
+    # 共享下载目录，与 aria2 使用同一路径
+    alias {{ shared_data_dir }};
+    autoindex on;
+    charset utf-8;
+
+    # 美化目录界面的 footer UI
+    add_after_body /{{ webdav_footer_name }};
+
+    dav_methods PUT DELETE MKCOL COPY MOVE;
+    create_full_put_path on;
+    dav_access user:rw group:rw all:r;
+
+    auth_basic "Storage";
+    auth_basic_user_file {{ webdav_htpasswd_path }};
+}
+
+# footer 静态文件（内部访问）
+location = /{{ webdav_footer_name }} {
+    internal;
+    alias {{ web_base }}/{{ domain }}/{{ webdav_footer_name }};
+    default_type text/html;
+}
+
+# 禁止搜索引擎索引
+location = /robots.txt {
+    alias {{ shared_data_dir }}/robots.txt;
+}

@@ -1,0 +1,10 @@
+---
+- name: Restart aria2
+  ansible.builtin.systemd:
+    name: aria2
+    state: restarted
+
+- name: Reload nginx
+  ansible.builtin.systemd:
+    name: nginx
+    state: reloaded
