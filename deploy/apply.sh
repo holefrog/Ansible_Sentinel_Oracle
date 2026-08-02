@@ -9,8 +9,9 @@ echo "🚀 StockSentinel 部署系统"
 echo "--------------------------------------------------------"
 echo "1) Bootstrap  - 首次执行，初始化服务器"
 echo "2) Apply      - 日常部署，更新应用"
+echo "3) Status     - 检查 VPS 资源与业务健康状态"
 echo "--------------------------------------------------------"
-read -rp "请选择 [1/2，其他退出]: " choice
+read -rp "请选择 [1/2/3，其他退出]: " choice
 
 case "$choice" in
     1)
@@ -25,6 +26,13 @@ case "$choice" in
         MODE="apply"
         INV="inventory.yml"
         PB="site.yml"
+        KEY="sentinel.key"
+        BECOME_ARGS=""
+        ;;
+    3)
+        MODE="status"
+        INV="inventory.yml"
+        PB="check_status.yml"
         KEY="sentinel.key"
         BECOME_ARGS=""
         ;;
@@ -49,7 +57,7 @@ echo ""
 if [[ ! -f "$KEY" ]]; then
     echo "❌ 未找到 ${KEY}"
     [[ "$MODE" == "bootstrap" ]] && echo "💡 请先将 ssh-key-2026-04-30.key 改名为 ubuntu.key 放入 deploy/ 目录"
-    [[ "$MODE" == "apply" ]] && echo "💡 sentinel.key 由 bootstrap 阶段自动生成，请先选择 1) Bootstrap 完成初始化"
+    [[ "$MODE" != "bootstrap" ]] && echo "💡 sentinel.key 由 bootstrap 阶段自动生成，请先选择 1) Bootstrap 完成初始化"
     exit 1
 fi
 chmod 400 "$KEY"

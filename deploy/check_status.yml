@@ -1,0 +1,71 @@
+---
+- name: 🔍 VPS 资源与业务健康看板
+  hosts: vps
+  become: true
+  gather_facts: true
+  
+  tasks:
+    - name: 探测旧 SSH 端口 (22) 状态
+      ansible.builtin.wait_for:
+        port: 22
+        host: 127.0.0.1
+        timeout: 1
+      register: ssh_22_check
+      failed_when: false
+
+    - name: 获取所有关键服务的系统状态
+      ansible.builtin.service_facts:
+
+    - name: 获取 UFW 真实运行状态
+      ansible.builtin.command: ufw status
+      register: ufw_status
+      changed_when: false
+      ignore_errors: true
+
+    - name: 获取 CPU 负载
+      ansible.builtin.command: cat /proc/loadavg
+      register: cpu_load
+      changed_when: false
+
+    - name: 获取 Fail2ban 状态
+      ansible.builtin.command: fail2ban-client status sshd
+      register: fail2ban_status
+      changed_when: false
+      ignore_errors: true
+
+    - name: 探测 WebDAV 路由连通性
+      ansible.builtin.uri:
+        url: "https://127.0.0.1:4433/webdav/"
+        validate_certs: false
+        # WebDAV 开启了认证，所以预期返回 401 Unauthorized 表示服务正常运转
+        status_code: [401, 403, 200]
+      register: webdav_check
+      ignore_errors: true
+
+    - name: 📊 打印健康报告
+      vars:
+        root_info: "{{ ansible_mounts | selectattr('mount', 'equalto', '/') | list | first }}"
+        svc: "{{ ansible_facts.services }}"
+      ansible.builtin.debug:
+        msg:
+          - "===================================="
+          - "[节点] {{ inventory_hostname }}"
+          - "[CPU 状态] {{ ansible_processor_vcpus | default(1) }} Cores | 负载(1/5/15分): {{ cpu_load.stdout.split(' ')[:3] | join(', ') }}"
+          - "[内存占用] {{ ansible_memory_mb.real.used }} MB / {{ ansible_memory_mb.real.total }} MB ({{ '%.1f' | format(ansible_memory_mb.real.used / ansible_memory_mb.real.total * 100) }}%)"
+          - "[Swap状态] {{ ansible_swaptotal_mb }}MB Total"
+          - "[存储占用] {{ (root_info.size_total - root_info.size_available) | human_readable }} / {{ root_info.size_total | human_readable }} ({{ '%.1f' | format((root_info.size_total - root_info.size_available) / root_info.size_total * 100) }}%)"
+          - ""
+          - "# --- 核心服务状态 (Systemd) ---"
+          - "[Nginx代理] {% if svc['nginx.service'] is defined and svc['nginx.service'].state == 'running' %}✅ 运行中{% else %}❌ 异常{% endif %}"
+          - "[Xray VPN] {% if svc['xray.service'] is defined and svc['xray.service'].state == 'running' %}✅ 运行中{% else %}❌ 异常{% endif %}"
+          - "[Aria2下载] {% if svc['aria2.service'] is defined and svc['aria2.service'].state == 'running' %}✅ 运行中{% else %}❌ 异常{% endif %}"
+          - "[Bot智能体] {% if svc['stock-sentinel-bot.service'] is defined and svc['stock-sentinel-bot.service'].state == 'running' %}✅ 运行中{% else %}❌ 异常{% endif %}"
+          - "[UFW防火墙] {% if ufw_status.stdout is defined and 'Status: active' in ufw_status.stdout %}✅ 运行中{% else %}❌ 异常 (可能未启用){% endif %}"
+          - "[Fail2ban] {% if svc['fail2ban.service'] is defined and svc['fail2ban.service'].state == 'running' %}✅ 运行中{% else %}❌ 异常 (可能未安装){% endif %}"
+          - ""
+          - "# --- 虚拟路由服务 ---"
+          - "[WebDAV文件] {% if webdav_check.status is defined and webdav_check.status in [401, 403, 200] %}✅ 运行中{% else %}❌ 异常 (连通性错误){% endif %}"
+          - ""
+          - "# --- 安全审计 ---"
+          - "[SSH 22端口] {% if ssh_22_check.msg is defined and 'Timeout' in ssh_22_check.msg %}🔒 已关闭 (安全){% else %}⚠️ 仍开启 (有风险){% endif %}"
+          - "===================================="
