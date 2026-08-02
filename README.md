@@ -96,11 +96,19 @@ Stock Sentinel 的架构设计可划分为以下四个主要子系统：
 │   ├── settings.toml         # 全局不可见核心设定（API、定时、模型优先度）
 │   └── watch_list.toml       # 自选股池与持仓账本
 ├── deploy/                   # Ansible 运维配置
-│   ├── apply.sh              # 一键部署交互入口
+│   ├── apply.sh              # 一键部署及状态查询交互入口
 │   ├── bootstrap.yml         # 初始化 Playbook
 │   ├── site.yml              # 日常发布 Playbook
-│   └── roles/                # 各类基建定义 (Nginx, Systemd, VPN 等)
-└── hugo/                     # 静态报告托管目录
+│   ├── check_status.yml      # 远程主机及业务服务状态检查 Playbook
+│   └── roles/                # Ansible 部署模块 (Roles)
+│       ├── app/              # Python Agent 核心逻辑部署
+│       ├── aria2/            # Aria2 下载服务部署
+│       ├── common/           # 系统基建及依赖预装
+│       ├── hugo/             # Hugo 静态站点构建部署
+│       ├── vpn/              # Xray/VPN 服务部署
+│       ├── web/              # Nginx 与 Let's Encrypt 统一管理
+│       └── webdav/           # WebDAV 文件管理服务部署
+└── hugo_test/                # 静态报告及站点的本地测试目录
 ```
 
 ## 🚀 部署与使用
