@@ -3,5 +3,32 @@ enable-rpc=true
 rpc-listen-all=false
 rpc-listen-port={{ aria2_internal_port }}
 rpc-secret={{ aria2_token }}
-# 强制继承下载目录权限
-file-allocation=none
+
+# === 磁盘与文件分配优化 ===
+# 强制继承下载目录权限（之前的注释）
+# 预分配方式，falloc 在 ext4/xfs 下几乎瞬间完成，能直接占满所需空间，避免中途磁盘不足
+file-allocation=falloc
+# 内存磁盘缓存，极大地减少频繁的磁盘 I/O（之前的“Write disk cache”报错就是 I/O 压力大导致的）
+disk-cache=64M
+
+# === 下载速度与连接优化 ===
+# 最大同时下载任务数
+max-concurrent-downloads=5
+# 同一服务器最大连接数（大幅提升 HTTP 下载速度）
+max-connection-per-server=16
+# 最小文件分片大小
+min-split-size=10M
+# 单任务最大线程数
+split=16
+
+# === BT/PT 协议优化 ===
+# BT 最大连接节点数
+bt-max-peers=50
+# 开启 DHT 网络与本地节点发现（极大提升死种/公网 BT 的下载成功率）
+enable-dht=true
+enable-dht6=true
+bt-enable-lpd=true
+# 自动保存磁力链接解析后的种子文件 (.torrent)
+bt-save-metadata=true
+# 在完整性校验期间允许分享（减少等待时间）
+bt-seed-unverified=true
