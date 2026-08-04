@@ -1,8 +1,24 @@
+# === 基础与路径设置 ===
+# 文件保存目录
 dir={{ shared_data_dir }}
+
+# === RPC 通信设置 ===
+# 启用 RPC 服务（允许 WebUI 控制）
 enable-rpc=true
+# 监听所有网络接口 (默认 false 提升安全性，可结合 Nginx 反代)
 rpc-listen-all=false
+# RPC 监听端口
 rpc-listen-port={{ aria2_internal_port }}
+# RPC 授权令牌/密钥
 rpc-secret={{ aria2_token }}
+
+# === 任务会话保存 ===
+# 启动时读取上次未完成的任务
+input-file=/etc/aria2/aria2.session
+# 退出时保存未完成的任务
+save-session=/etc/aria2/aria2.session
+# 每隔多少秒自动保存一次会话
+save-session-interval=60
 
 # === 磁盘与文件分配优化 ===
 # 强制继承下载目录权限（之前的注释）

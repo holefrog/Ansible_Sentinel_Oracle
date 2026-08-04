@@ -12,6 +12,14 @@
     group: "{{ web_user }}"
     mode: '0755'
 
+- name: Create Aria2 session file
+  ansible.builtin.file:
+    path: /etc/aria2/aria2.session
+    state: touch
+    owner: "{{ web_user }}"
+    group: "{{ web_user }}"
+    mode: '0644'
+
 - name: Render Aria2 configuration file
   ansible.builtin.template:
     src: aria2.conf.j2
